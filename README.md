@@ -83,7 +83,7 @@ El objetivo es obtener series de precio comparables en el tiempo y entre mercado
 | # | Criterio | Filas eliminadas | ¿Por qué? |
 |---|---|---:|---|
 | 1 | Duplicados exactos | 0 | Se verificó que no existen. |
-| 2 | Presentaciones en saco (120, 140 y 150 lb) | 1,862 | El quintal de 100 lb representa el 89% de los registros. En Cuenca el saco de 140 lb cuesta alrededor de 15% mas por kg que el quintal. |
+| 2 | Presentaciones en saco (120, 140 y 150 lb) | 1,862 | El quintal de 100 lb representa el 89% de los registros. En Cuenca el saco de 140 lb cuesta alrededor de 19% mas por kg que el quintal. |
 | 3 | Mercados fuera del alcance | 4,507 | Se trabaja con los 6 mercados con series continuas en 2012-2026. |
 
 **Resultado:** 17,012 - 10,643 filas.
@@ -174,7 +174,7 @@ Se generan cinco gráficas, una por pregunta:
 - Sí. El precio es más bajo de abril a junio, alrededor de 15% bajo el promedio del año.
 - Es más alto de noviembre a enero, entre 12% y 15% sobre el promedio.
 - El patrón se repite en los seis mercados.
-- Cada precio se divide para el promedio de su año para poder comparar un año caro (2024) con uno barato (2026) en la misma escala, 1.10 significa 10% sobre el promedio de ese año.
+- Cada precio se divide para el promedio de su año para poder comparar un año caro (2024) con uno barato (2020) en la misma escala, 1.10 significa 10% sobre el promedio de ese año.
 
 ### Pregunta 3: ¿Qué determina la diferencia de precio entre mercados?
 
