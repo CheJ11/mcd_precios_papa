@@ -4,25 +4,68 @@ Adquisición, limpieza, almacenamiento en una db SQLite, análisis exploratorio,
 
 El proyecto tiene dos fases. La fase 1 (partes 1 a 3) limpia, explora y visualiza los datos. La fase 2 (parte 4) usa esos resultados para pronosticar el precio con 4 semanas de anticipación.
 
-## 1. Datos
+## 1. Planteamiento
+
+**Problema.** La papa es un producto básico en la alimentación del Ecuador y una fuente de ingreso para los productores de la Sierra. Su precio mayorista cambia mucho de una semana a otra y entre años, lo que genera incertidumbre para quien la produce, la vende o la compra. Saber cómo se comporta ese precio, y si se puede anticipar, ayuda a decidir cuándo vender, cuánto almacenar o cuándo comprar.
+
+**Objetivo.** Describir el comportamiento del precio mayorista de la papa superchola en seis mercados del Ecuador entre 2013 y 2025, y evaluar si se puede pronosticar con 4 semanas de anticipación mejor que repitiendo el precio actual.
+
+**Alcance**
+
+| Elemento | Definición |
+|---|---|
+| Producto | Papa superchola, presentación quintal de 100 lb |
+| Mercados | Quito, Guayaquil y Cuenca (consumo); Ambato, Riobamba y Latacunga (zona productora) |
+| Periodo de análisis | 2013-2025 (datos disponibles desde 2012) |
+| Variable de estudio | Precio en USD/kg |
+
+**Preguntas**
+
+| # | Fase | Pregunta |
+|---|---|---|
+| P1 | 1 | ¿Cómo ha evolucionado el precio entre 2013 y 2025? |
+| P2 | 1 | ¿Existe un patrón estacional? |
+| P3 | 1 | ¿Qué determina la diferencia de precio entre mercados? |
+| P4 | 1 | ¿Los precios de los mercados se mueven juntos de una semana a otra? ¿Un cambio de precio en un mercado se repite después en otro? |
+| P5 | 1 | ¿Qué tan volátil es el precio y ha cambiado en el tiempo? |
+| M1 | 2 | ¿Se puede predecir el precio de dentro de 4 semanas mejor que repitiendo el precio de esta semana? |
+| M2 | 2 | ¿Ayuda conocer los precios recientes de los otros mercados? |
+| M3 | 2 | ¿En qué mercados y en qué momentos se equivoca más el modelo? |
+
+La pregunta P3 y las preguntas M1-M3 cambiaron durante el proyecto; la sección 10 explica por qué.
+
+## 2. Datos
 
 | Característica | Valor |
 |---|---|
-| Fuente | SIPA, Ministerio de Agricultura y Ganadería (MAG), módulo *Consulta Personalizada* de precios en mercados mayoristas |
+| Fuente | SIPA, Ministerio de Agricultura y Ganadería (MAG), módulo *Consulta Personalizada* de precios en mercados mayoristas ([sipa.agricultura.gob.ec](https://sipa.agricultura.gob.ec)) |
 | Parámetros de la consulta | Producto: Papa Súper Chola · Lugar: todos los mercados · Fechas: 01/01/2012 – 31/08/2026 |
 | Fecha de descarga | 29/09/2026 |
 | Contenido | Precio mayorista registrado en los días de feria de cada mercado |
 | Periodo | 02/01/2012 – 28/08/2026 |
-| Registros | 17,012 originales - 10,643 tras la limpieza - 4,068 en el panel semanal |
+| Registros | 17,012 originales → 10,643 tras la limpieza → 4,068 en el panel semanal |
 | Archivo original | `Rep_Pre_Prod_X_MercCGINA.csv` (4.06 MB) |
 
-Cada fila del dataset es un precio registrado en un mercado en un día. Los mercados registran entre 2 y 4 precios por semana, en días distintos.
+Cada fila del dataset es un precio registrado en un mercado en un día. Según el mercado, se registran en promedio entre 2 y 4 precios por semana, en días distintos.
+
+**Diccionario de datos.** El reporte del SIPA exporta nombres de columna internos, que `00_adquisicion.py` reemplaza por nombres descriptivos:
+
+| Columna original | Nombre nuevo | Contenido |
+|---|---|---|
+| `NOMBRE_MERCADO_1` | `mercado` | Nombre del mercado (ej. `Quito MMQ-EP`) |
+| `NOMBRE_CATE_PROD_1` | `categoria` | Categoría del producto (el mismo valor en todas las filas) |
+| `textbox6` | `producto` | Producto (`Papa Súper Chola` en todas las filas) |
+| `FECHA_TOMA` | `fecha` | Día en que se registró el precio |
+| `textbox4` | `precio` | Precio en USD por unidad de venta |
+| `textbox10` | `presentacion` | Unidad de venta (ej. `Quintal 100,00 Libra`) |
+| `PRECIO_KILO` | `precio_kg` | Precio en USD/kg |
+| `PRESENTACION` | `unidad_precio_kg` | Unidad de `PRECIO_KILO` (`kg` en todas las filas) |
 
 El CSV original viene en codificación UTF-16. La codificación es la regla con la que un archivo guarda cada carácter como bytes. UTF-16 usa 2 bytes por carácter, sin embargo pandas lee por defecto en UTF-8, ya que es la codificación mas común, así que si no se le indica otra al momento de leer el archivo da error o muestra caracteres ilegibles. Por eso el archivo se lee con encoding="utf-16". El original no se convierte ya que la copia en Parquet ya no depende de esa codificación.
 
-**Elección del producto.** Se revisó la cobertura de los productos disponibles en el SIPA. La papa superchola es el producto con más mercados (19) y con series completas en los mercados de Quito, Guayaquil y Cuenca. También se consideró el banano, pero tiene solo 7 mercados y casi no presenta estacionalidad.
+**Elección del producto.** En una revisión preliminar con el histórico mensual que publica el SIPA (no incluido en el repositorio) se comparó la cobertura de los productos disponibles. La papa superchola es el producto con más mercados (19) y con series completas en los mercados de Quito, Guayaquil y Cuenca. También se consideró el banano, pero tiene solo 7 mercados y casi no presenta estacionalidad.
 
-## 2. Estructura del repositorio
+## 3. Estructura del repositorio
 
 ```
 ├── data/
@@ -45,9 +88,19 @@ El CSV original viene en codificación UTF-16. La codificación es la regla con 
 └── README.md
 ```
 
+La db `precios_papa.db` contiene siete tablas:
+
+| Tabla | Script | Contenido |
+|---|---|---|
+| `precios` | 01 | Precios diarios limpios |
+| `panel_semanal` | 02 | Precio semanal por mercado |
+| `variables` | 05 | Variables y precio a predecir |
+| `predicciones_base`, `metricas_base` | 06 | Resultados de los modelos con valores por defecto |
+| `predicciones_optimizadas`, `metricas_optimizadas` | 07 | Resultados de los modelos optimizados |
+
 En este caso el CSV original sí se sube al repositorio debido a que se descarga a mano desde el SIPA y no se puede obtener con un script.
 
-## 3. Ejecución
+## 4. Ejecución
 
 Los scripts se ejecutan en orden desde el directorio raíz del proyecto:
 
@@ -66,7 +119,7 @@ python scripts/08_evaluacion.py
 
 Las dependencias son: pandas, numpy, pyarrow (para leer y guardar Parquet), matplotlib, seaborn y scikit-learn (modelos). La db se maneja con `sqlite3` que viene incluido en Python. `07_optimizacion.py` tarda unos 3 minutos; los demás scripts, segundos.
 
-## 4. Proceso
+## 5. Proceso
 
 ```
 CSV original  →  copia .parquet  →  limpieza  →  db SQLite  →  panel semanal  →  EDA y gráficas
@@ -94,7 +147,7 @@ panel semanal  →  variables  →  modelos  →  optimización  →  evaluació
 9. **Evaluación** 
 `08_evaluacion.py` analiza los errores del modelo elegido por mercado y por mes, y genera las gráficas de la fase 2.
 
-## 5. Parte 1: Limpieza de datos
+## 6. Parte 1: Limpieza de datos
 
 El objetivo es obtener series de precio comparables en el tiempo y entre mercados. Un mismo producto en una misma presentación en mercados con registros ininterrumpidos. Se aplica un criterio de limpieza solo si afecta el objetivo planteado.
 
@@ -104,7 +157,7 @@ El objetivo es obtener series de precio comparables en el tiempo y entre mercado
 | 2 | Presentaciones en saco (120, 140 y 150 lb) | 1,862 | El quintal de 100 lb representa el 89% de los registros. En Cuenca el saco de 140 lb cuesta alrededor de 19% más por kg que el quintal. |
 | 3 | Mercados fuera del alcance | 4,507 | Se trabaja con los 6 mercados con series continuas en 2012-2026. |
 
-**Resultado:** 17,012 - 10,643 filas.
+**Resultado:** 17,012 → 10,643 filas.
 
 **Mercados seleccionados**
 
@@ -117,6 +170,7 @@ El objetivo es obtener series de precio comparables en el tiempo y entre mercado
 | Riobamba (EP-EMMPA) | Zona productora | 2,269 |
 | Latacunga | Zona productora | 1,329 |
 
+**¿Qué no se eliminó?**
 
 - **Precios extremos:** coinciden con eventos reales como el paro nacional de octubre de 2019 (Guayaquil llegó a 1.54 USD/kg) y el de junio de 2022. Son variaciones reales del mercado.
 
@@ -132,7 +186,7 @@ Cada mercado registra precios en días distintos y con distinta frecuencia, así
 
 6 mercados × 678 semanas = 4,068 filas
 
-## 6. Parte 2: Análisis exploratorio
+## 7. Parte 2: Análisis exploratorio
 
 El panel se lee desde la db con `pd.read_sql`. SQLite no guarda fechas ni booleanos, así que `semana` e `interpolado` se restauran a su tipo al leer.
 
@@ -160,7 +214,7 @@ Quito es un mercado de consumo, pero su precio es menor que el de Ambato y cerca
 
 **Ciclo entre años:** los seis mercados suben y bajan en los mismos años. 2024 tiene el precio más alto (0.64 USD/kg en promedio) y 2020 el más bajo (0.32).
 
-## 7. Parte 3: Visualización
+## 8. Parte 3: Visualización
 
 Se generan cinco gráficas, una por pregunta:
 
@@ -221,10 +275,10 @@ Se generan cinco gráficas, una por pregunta:
 **Respuesta**
 
 - La variación semanal típica pasó de 7-9% (2014-2019) a 10-11.5% (2020-2025): la volatilidad aumentó alrededor de un tercio.
-- Cuenca es el mercado más estable (coeficiente de variación 0.25).
+- Ambato tiene la menor variación semanal (8.9%) y Riobamba la mayor (10.5%). Cuenca tiene los precios más estables entre años (coeficiente de variación 0.25), pero no semana a semana.
 - El salto de Guayaquil en octubre de 2019 dura exactamente 52 semanas, es el efecto del paro.
 
-## 8. Parte 4: Modelado
+## 9. Parte 4: Modelado
 
 El objetivo es responder tres preguntas:
 
@@ -372,7 +426,7 @@ Se evalúa el modelo elegido (Random Forest optimizado) frente al ingenuo en 202
 - La predicción del modelo es casi la del ingenuo, algo suavizada: ambas van unas 4 semanas detrás del precio real cuando este cambia de dirección. El modelo no anticipa los cambios, solo los modera.
 - 2025 siguió casi exactamente el patrón estacional de la pregunta 2, lo que ayuda a explicar por qué el modelo funcionó mejor ese año que en la validación cruzada.
 
-## 9. Evolución de las preguntas
+## 10. Evolución de las preguntas
 
 Las preguntas se definieron antes de empezar, pero los resultados de cada etapa obligaron a ajustar algunas.
 
@@ -394,12 +448,23 @@ Las preguntas se definieron antes de empezar, pero los resultados de cada etapa 
 | M2 | Probar si los otros mercados mejoran el pronóstico | Se mantuvo, esperando un resultado negativo | La pregunta 4 mostró que los cambios no se transmiten con rezago. Se confirmó |
 | Hipótesis de M3 | La ventaja del modelo en 2025 se concentra en la caída del precio | Parcialmente cierta | La ventaja está en los picos de precio: enero (antes de la caída) y octubre |
 
-## 10. Limitaciones
+## 11. Conclusiones
+
+1. **El precio no tiene tendencia, pero sí ciclos.** Entre 2013 y 2025 oscila entre 0.32 y 0.64 USD/kg en promedio anual, con máximos cada 2 a 3 años. El ciclo es compatible con la respuesta de los productores al precio, pero 13 años no bastan para confirmarlo.
+2. **La estacionalidad es marcada.** El precio es alrededor de 15% más bajo de abril a junio y entre 12% y 15% más alto de noviembre a enero, en los seis mercados.
+3. **La ubicación parece pesar más que la función del mercado.** Quito, un mercado de consumo, tiene precios al nivel de los mercados productores. Cuenca y Guayaquil, los más alejados de la Sierra centro, son los más caros.
+4. **Los mercados se mueven juntos en la misma semana, pero no se anticipan entre sí.** Por eso conocer los precios de otros mercados no mejora el pronóstico (M2).
+5. **La volatilidad aumentó desde 2020**, de 7-9% a 10-11.5% de variación semanal.
+6. **Con solo precios pasados, el pronóstico a 4 semanas no supera de forma consistente al ingenuo.** En 2025 el modelo elegido lo supera en 9.7%, pero en 2015-2024 el ingenuo tiene menos error. El modelo funciona como un ingenuo corregido por la estacionalidad: modera los picos, pero no anticipa los cambios bruscos.
+7. **Mejorar el pronóstico requiere más información, no otro modelo.** Tres modelos distintos llegan casi al mismo error. El siguiente paso sería incorporar datos de oferta, como la superficie sembrada o el clima.
+
+## 12. Limitaciones
 
 - El CSV se descarga a mano desde el SIPA así que una nueva descarga podría diferir si el SIPA corrige registros.
 - El dataset solo tiene precios, no incluye volúmenes vendidos ni variables como clima o costos de producción.
 - Con seis mercados no se puede separar el efecto de la ubicación y el de la función del mercado.
 - Una parte del error no se puede predecir: eventos como los paros de 2019 y 2022 no se pueden anticipar con 4 semanas.
 - La prueba es un solo año (2025), que siguió el patrón estacional de forma muy marcada. En la validación cruzada el ingenuo fue mejor.
+- Los valores interpolados se calcularon con la semana siguiente. Se excluyen como valor a predecir en la evaluación, pero pueden aparecer como variables de entrada en el entrenamiento (como máximo 33 filas).
 
 **Trabajo futuro:** los modelos solo usan precios pasados. Las variables externas con más potencial son la superficie sembrada, porque la papa tarda meses en cosecharse y define la oferta futura, y el clima en las zonas productoras (lluvias, heladas). El precio del combustible tendría poco efecto, porque en Ecuador el diésel tiene un precio regulado que cambia pocas veces.

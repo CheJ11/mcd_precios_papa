@@ -107,6 +107,8 @@ plt.close(fig)
 volatilidad = variacion.rolling(52).std() * 100
 print("\nVolatilidad media por año (% semanal):")
 print(volatilidad.mean(axis=1).groupby(volatilidad.index.year).mean().round(2).to_string())
+print("\nVariación semanal por mercado, 2013-2025 (desviación estándar, %):")
+print((variacion.std() * 100).round(2).sort_values().to_string())
 
 fig, ax = plt.subplots(figsize=(11, 5))
 for mercado in volatilidad.columns:
